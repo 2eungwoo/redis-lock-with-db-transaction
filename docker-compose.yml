@@ -1,6 +1,18 @@
 version: '3.8'
 
 services:
+  postgres:
+    image: postgres:13
+    container_name: redis-lock-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=test
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
   redis:
     image: redis:7
     container_name: redis-lock-redis
@@ -15,8 +27,14 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USERNAME=user
+      - DB_PASSWORD=password
+      - DB_DATABASE=test
     depends_on:
       - redis
+      - postgres
 
   app2:
     build: .
@@ -26,8 +44,14 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USERNAME=user
+      - DB_PASSWORD=password
+      - DB_DATABASE=test
     depends_on:
       - redis
+      - postgres
 
   app3:
     build: .
@@ -37,5 +61,14 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USERNAME=user
+      - DB_PASSWORD=password
+      - DB_DATABASE=test
     depends_on:
       - redis
+      - postgres
+
+volumes:
+  pgdata:
