@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { LockModule } from '../lock/lock.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RedisModule } from '../redis/redis.module';
 import { ProductModule } from '../product/product.module';
@@ -18,7 +17,6 @@ import { ProductModule } from '../product/product.module';
       autoLoadEntities: true,
       synchronize: true, // 개발 환경에서만 사용
     }),
-    LockModule,
     RedisModule,
     ProductModule,
   ],

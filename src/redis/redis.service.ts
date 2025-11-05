@@ -5,6 +5,10 @@ import Redis from 'ioredis';
 export class RedisService {
   constructor(@Inject('REDIS_CLIENT') private readonly redis: Redis) {}
 
+  public getClient(): Redis {
+    return this.redis;
+  }
+
   async checkConnection(): Promise<string> {
     try {
       const result = await this.redis.ping();
