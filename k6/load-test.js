@@ -8,8 +8,14 @@ const servers = [
 ];
 
 export const options = {
-  vus: 30,
-  iterations: 34,
+  scenarios: { // 102개 요청 보내게 해서 정확히 100차감, 2남는지 확인하는 시나리오
+    deductStockScenario: {
+      executor: 'per-vu-iterations',
+      vus: 34, // 가상 34명
+      iterations: 1, // 각자 1회씩
+      maxDuration: '30s', // 최대 실행시간 
+    },
+  },
 };
 
 export default function () {
