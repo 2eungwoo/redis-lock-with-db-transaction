@@ -27,20 +27,16 @@ export class ProductService {
   async deductStock(productId: number, quantity: number): Promise<Product> {
     const resource = `product:${productId}:lock`;
 
-    let lock: Lock | undefined;
-    try {
-      lock = await this.redisService.acquireLock(resource);
-
+    return this.redisService.withLock(resource, 5000, async () => {
       const product = await this.getProduct(productId);
       this.validateStock(product, quantity);
 
       product.stock -= quantity;
+      console.log(
+        `[product.stock] ============= 현재 stock count : ${product.stock}`,
+      );
       return this.productRepository.save(product);
-    } finally {
-      if (lock) {
-        await this.redisService.releaseLock(lock);
-      }
-    }
+    });
   }
 
   async getProduct(productId: number): Promise<Product> {

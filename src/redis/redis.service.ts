@@ -56,21 +56,39 @@ export class RedisService implements OnModuleDestroy {
     }
   }
 
-  // 최신 Redlock using() 문법 — critical section 예시
-  async withLock(
+  async withLock<T>(
     resource: string,
     duration = 3000,
-    fn: () => Promise<void>,
-  ): Promise<void> {
-    await this.redlock.using([resource], duration, async (signal) => {
-      this.logger.debug(`락 획득 후 실행: ${resource}`);
-      await fn();
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    let result: T | undefined; // result를 undefined로 초기화 가능하도록 변경
+    try {
+      await this.redlock.using([resource], duration, async (signal) => {
+        this.logger.debug(`락 획득 후 실행: ${resource}`);
+        result = await fn(); // fn()의 결과를 result에 저장
 
-      // 필요 시 연장 예시
-      if (!signal.aborted) {
-        this.logger.verbose(`락 자동 연장: ${resource}`);
-      }
-    });
+        // 필요 시 연장 예시
+        if (!signal.aborted) {
+          this.logger.verbose(`락 자동 연장: ${resource}`);
+        }
+      });
+    } catch (error) {
+      // 임계 영역 실행 중 발생한 오류를 로깅하고 다시 throw
+      this.logger.error(
+        `withLock 임계 영역 실행 중 오류 발생: ${resource}`,
+        error,
+      );
+      throw error; // 오류를 다시 던져서 호출자에게 전파
+    }
+
+    // fn()이 성공적으로 값을 반환하지 않았을 경우를 대비한 안전 장치
+    if (result === undefined) {
+      throw new Error(
+        `withLock: Critical section for resource ${resource} did not return a value.`,
+      );
+    }
+
+    return result; // 성공적으로 할당된 결과 반환
   }
 
   // 락 해제 (LockReleaseError 대응)
@@ -79,6 +97,12 @@ export class RedisService implements OnModuleDestroy {
       await lock.release();
       this.logger.debug(`락 해제 완료: ${lock.resource}`);
     } catch (error: any) {
+      // 디버깅을 위해 lock 객체 전체를 로그로 출력
+      this.logger.error(
+        `락 해제 중 오류 발생. lock 객체: ${JSON.stringify(lock)}`,
+        error,
+      );
+
       if (error.name === 'LockReleaseError') {
         this.logger.warn(`이미 만료된 락: ${lock.resource}`);
         return;
