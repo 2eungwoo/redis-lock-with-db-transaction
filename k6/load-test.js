@@ -8,12 +8,12 @@ const servers = [
 ];
 
 export const options = {
-  scenarios: { // 102개 요청 보내게 해서 정확히 100차감, 2남는지 확인하는 시나리오
+  scenarios: {
     deductStockScenario: {
       executor: 'per-vu-iterations',
-      vus: 34, // 가상 34명
+      vus: 350, // 가상 333명
       iterations: 1, // 각자 1회씩
-      maxDuration: '30s', // 최대 실행시간 
+      maxDuration: '30s', // 최대 실행시간
     },
   },
 };
@@ -21,7 +21,7 @@ export const options = {
 export default function () {
   const requests = servers.map((baseUrl) => ({
     method: 'POST',
-    url: `${baseUrl}/product/1/deduct`,
+    url: `${baseUrl}/product/4/deduct`,
     body: JSON.stringify({ quantity: 1 }),
     params: {
       headers: { 'Content-Type': 'application/json' },
