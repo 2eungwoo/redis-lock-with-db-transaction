@@ -42,20 +42,6 @@ export class RedisService implements OnModuleDestroy {
     }
   }
 
-  // 락 획득 (Redlock v6 이상 문법)
-  async acquireLock(resource: string, duration = 5000): Promise<Lock> {
-    try {
-      const lock = await this.redlock.acquire([resource], duration);
-      this.logger.debug(`락 획득 성공: ${resource}`);
-      return lock;
-    } catch (error) {
-      this.logger.error(`락 획득 실패: ${resource}`, error);
-      throw new Error(
-        `락 획득 실패 (${resource}): ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-  }
-
   async withLock<T>(
     resource: string,
     duration = 3000,
@@ -89,27 +75,6 @@ export class RedisService implements OnModuleDestroy {
     }
 
     return result; // 성공적으로 할당된 결과 반환
-  }
-
-  // 락 해제 (LockReleaseError 대응)
-  async releaseLock(lock: Lock): Promise<void> {
-    try {
-      await lock.release();
-      this.logger.debug(`락 해제 완료: ${lock.resource}`);
-    } catch (error: any) {
-      // 디버깅을 위해 lock 객체 전체를 로그로 출력
-      this.logger.error(
-        `락 해제 중 오류 발생. lock 객체: ${JSON.stringify(lock)}`,
-        error,
-      );
-
-      if (error.name === 'LockReleaseError') {
-        this.logger.warn(`이미 만료된 락: ${lock.resource}`);
-        return;
-      }
-      this.logger.error(`락 해제 실패: ${lock.resource}`, error);
-      throw new Error(`락 해제 실패 (${lock.resource}): ${error.message}`);
-    }
   }
 
   // 서비스 종료 시 연결 해제
