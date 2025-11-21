@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Product } from './product.entity';
 import { RedisService } from '../redis/redis.service';
 import { Transactional } from 'typeorm-transactional';
@@ -17,6 +17,7 @@ export class ProductService {
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
     private readonly redisService: RedisService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async createProduct(name: string, stock: number): Promise<Product> {
@@ -34,6 +35,44 @@ export class ProductService {
       console.log(`[product.stock] 현재 stock count : ${product.stock}`);
       return this.productRepository.save(product);
     });
+  }
+
+  async txWithLockAndRollback(
+    productId: number,
+    quantity: number,
+  ): Promise<void> {
+    const resource = `product:${productId}:lock`;
+    const runner = this.dataSource.createQueryRunner();
+
+    await runner.connect();
+    await runner.startTransaction();
+
+    try {
+      await this.redisService.withLock(resource, 5000, async () => {
+        const product = await runner.manager.findOne(Product, {
+          where: { id: productId },
+          lock: { mode: 'pessimistic_write' },
+        });
+
+        if (!product) throw new Error('not found');
+
+        this.validateStock(product, quantity);
+        product.stock -= quantity;
+
+        await runner.manager.save(product);
+
+        // 의도적 실패 → 트랜잭션 롤백 유도
+        throw new Error('forced rollback');
+      });
+
+      // withLock callback 끝나는 순간 락은 이미 해제된 상태임
+      await runner.commitTransaction(); // 도달 X
+    } catch (err) {
+      await runner.rollbackTransaction(); // 여기서 rollback
+      throw err;
+    } finally {
+      await runner.release();
+    }
   }
 
   async getProduct(productId: number): Promise<Product> {

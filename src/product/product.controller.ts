@@ -52,6 +52,12 @@ export class ProductController {
     return ProductResponseDto.from(product);
   }
 
+  @Post(':id/tx-rollback')
+  async txRollback(@Param('id') id: number) {
+    await this.productService.txWithLockAndRollback(+id, 1);
+    return { ok: true };
+  }
+
   @Post('clear')
   clear(): Promise<void> {
     return this.productService.clearProducts();
