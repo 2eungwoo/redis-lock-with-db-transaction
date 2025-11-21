@@ -134,7 +134,7 @@ export class ProductService {
     await this.productRepository.clear();
     const newProduct = this.productRepository.create({
       name: 'Test Product',
-      stock: 1000,
+      stock: 1,
     });
     return this.productRepository.save(newProduct);
   }
