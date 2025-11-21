@@ -47,34 +47,32 @@ export class RedisService implements OnModuleDestroy {
     duration = 3000,
     fn: () => Promise<T>,
   ): Promise<T> {
-    let result: T | undefined; // result를 undefined로 초기화 가능하도록 변경
+    let result: T | undefined;
     try {
       await this.redlock.using([resource], duration, async (signal) => {
         this.logger.debug(`락 획득 후 실행: ${resource}`);
         result = await fn(); // fn()의 결과를 result에 저장
 
-        // 필요 시 연장 예시
+        // watchdog 아직 안함
         if (!signal.aborted) {
           this.logger.verbose(`락 자동 연장: ${resource}`);
         }
       });
     } catch (error) {
-      // 임계 영역 실행 중 발생한 오류를 로깅하고 다시 throw
       this.logger.error(
         `withLock 임계 영역 실행 중 오류 발생: ${resource}`,
         error,
       );
-      throw error; // 오류를 다시 던져서 호출자에게 전파
+      throw error;
     }
 
-    // fn()이 성공적으로 값을 반환하지 않았을 경우를 대비한 안전 장치
     if (result === undefined) {
       throw new Error(
         `withLock: Critical section for resource ${resource} did not return a value.`,
       );
     }
 
-    return result; // 성공적으로 할당된 결과 반환
+    return result;
   }
 
   async withLockManual(resource: string, ttl: number, fn: () => Promise<any>) {

@@ -1,5 +1,4 @@
 /* eslint-disable */
-import { Lock } from 'redlock';
 import {
   BadRequestException,
   Injectable,
