@@ -20,8 +20,13 @@ export class RedisService implements OnModuleDestroy {
 
     this.redlock.on('clientError', (err: unknown) => {
       if (err instanceof Error)
-        this.logger.error('Redlock client error:', err.message, err.stack);
-      else this.logger.error(`Redlock client error: ${String(err)}`);
+        this.logger.error(
+          `[REDLOCK ERROR] Redlock client error:`,
+          err.message,
+          err.stack,
+        );
+      else
+        this.logger.error(`[REDLOCK ERROR] Redlock client error: ${String(err)}`);
     });
   }
 
@@ -34,10 +39,10 @@ export class RedisService implements OnModuleDestroy {
   async checkConnection(): Promise<string> {
     try {
       const result = await this.redis.ping();
-      this.logger.log(`Redis ping: ${result}`);
+      this.logger.log(`[REDIS INFO] Redis ping: ${result}`);
       return result;
     } catch (error) {
-      this.logger.error('Redis 연결 실패', error);
+      this.logger.error('[REDIS ERROR] Redis 연결 실패', error);
       return 'Error connecting to Redis';
     }
   }
@@ -50,17 +55,16 @@ export class RedisService implements OnModuleDestroy {
     let result: T | undefined;
     try {
       await this.redlock.using([resource], duration, async (signal) => {
-        this.logger.debug(`락 획득 후 실행: ${resource}`);
+        this.logger.debug(`[REDLOCK DEBUG] 락 획득 후 실행: ${resource}`);
         result = await fn(); // fn()의 결과를 result에 저장
 
-        // watchdog 아직 안함
         if (!signal.aborted) {
-          this.logger.verbose(`락 자동 연장: ${resource}`);
+          this.logger.verbose(`[REDLOCK VERBOSE] 락 자동 연장: ${resource}`);
         }
       });
     } catch (error) {
       this.logger.error(
-        `withLock 임계 영역 실행 중 오류 발생: ${resource}`,
+        `[REDLOCK ERROR] withLock 임계 영역 실행 중 오류 발생: ${resource}`,
         error,
       );
       throw error;
@@ -77,12 +81,12 @@ export class RedisService implements OnModuleDestroy {
 
   async withLockManual(resource: string, ttl: number) {
     const lock = await this.redlock.acquire([resource], ttl);
-    this.logger.debug(`수동 락 획득: ${resource}`);
+    this.logger.debug(`[REDLOCK DEBUG] 수동 락 획득: ${resource}`);
 
     return {
       release: async () => {
         await lock.release();
-        this.logger.debug(`수동 락 해제 완료: ${resource}`);
+        this.logger.debug(`[REDLOCK DEBUG] 수동 락 해제 완료: ${resource}`);
       },
     };
   }
@@ -91,9 +95,9 @@ export class RedisService implements OnModuleDestroy {
   async onModuleDestroy() {
     try {
       await this.redis.quit();
-      this.logger.log('Redis 연결 종료');
+      this.logger.log('[REDIS INFO] Redis 연결 종료');
     } catch (error) {
-      this.logger.error('Redis 종료 중 오류', error);
+      this.logger.error('[REDIS ERROR] Redis 종료 중 오류', error);
     }
   }
 }
