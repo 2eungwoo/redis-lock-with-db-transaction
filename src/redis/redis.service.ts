@@ -77,6 +77,26 @@ export class RedisService implements OnModuleDestroy {
     return result; // 성공적으로 할당된 결과 반환
   }
 
+  async withLockManual(resource: string, ttl: number, fn: () => Promise<any>) {
+    let release: () => Promise<void>;
+
+    const result = await this.redlock.using([resource], ttl, async (signal) => {
+      release = async () => {
+        try {
+          if (!signal.aborted) {
+            await signal.redlock.release(signal.lock);
+            this.logger.debug(`수동 락 해제 완료: ${resource}`);
+          }
+        } catch (err) {
+          this.logger.error(`수동 락 해제 실패: ${resource}`, err);
+        }
+      };
+      return await fn();
+    });
+
+    return { result, release };
+  }
+
   // 서비스 종료 시 연결 해제
   async onModuleDestroy() {
     try {

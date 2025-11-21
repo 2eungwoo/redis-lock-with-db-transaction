@@ -58,6 +58,12 @@ export class ProductController {
     return { ok: true };
   }
 
+  @Post(':id/tx-safe')
+  async txSafe(@Param('id') id: number) {
+    await this.productService.txWithLockSafe(+id, 1);
+    return { ok: true };
+  }
+
   @Post('clear')
   clear(): Promise<void> {
     return this.productService.clearProducts();

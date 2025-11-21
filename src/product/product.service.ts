@@ -75,6 +75,44 @@ export class ProductService {
     }
   }
 
+  async txWithLockSafe(productId: number, quantity: number): Promise<void> {
+    const resource = `product:${productId}:lock`;
+    const runner = this.dataSource.createQueryRunner();
+
+    await runner.connect();
+
+    const { release } = await this.redisService.withLockManual(
+      resource,
+      5000,
+      async () => {
+        await runner.startTransaction();
+
+        try {
+          const product = await runner.manager.findOne(Product, {
+            where: { id: productId },
+            lock: { mode: 'pessimistic_write' },
+          });
+
+          if (!product) throw new Error('not found');
+
+          this.validateStock(product, quantity);
+          product.stock -= quantity;
+
+          await runner.manager.save(product);
+          await runner.commitTransaction(); // commit 먼저
+        } catch (e) {
+          await runner.rollbackTransaction(); // rollback 먼저
+          throw e;
+        } finally {
+          await runner.release(); // 트랜잭션 종료
+        }
+      },
+    );
+
+    // 트랜잭션 끝난 후 락 해제
+    await release();
+  }
+
   async getProduct(productId: number): Promise<Product> {
     const product = await this.productRepository.findOne({
       where: { id: productId },
