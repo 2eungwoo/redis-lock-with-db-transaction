@@ -76,40 +76,33 @@ export class ProductService {
 
   async txWithLockSafe(productId: number, quantity: number): Promise<void> {
     const resource = `product:${productId}:lock`;
+    const { release } = await this.redisService.withLockManual(resource, 5000);
     const runner = this.dataSource.createQueryRunner();
 
     await runner.connect();
+    await runner.startTransaction();
+    try {
+      const product = await runner.manager.findOne(Product, {
+        where: { id: productId },
+        lock: { mode: 'pessimistic_write' },
+      });
 
-    const { release } = await this.redisService.withLockManual(
-      resource,
-      5000,
-      async () => {
-        await runner.startTransaction();
+      if (!product) {
+        throw new NotFoundException(`Product with ID ${productId} not found`);
+      }
 
-        try {
-          const product = await runner.manager.findOne(Product, {
-            where: { id: productId },
-            lock: { mode: 'pessimistic_write' },
-          });
+      this.validateStock(product, quantity);
+      product.stock -= quantity;
 
-          if (!product) throw new Error('not found');
-
-          this.validateStock(product, quantity);
-          product.stock -= quantity;
-
-          await runner.manager.save(product);
-          await runner.commitTransaction(); // commit 먼저
-        } catch (e) {
-          await runner.rollbackTransaction(); // rollback 먼저
-          throw e;
-        } finally {
-          await runner.release(); // 트랜잭션 종료
-        }
-      },
-    );
-
-    // 트랜잭션 끝난 후 락 해제
-    await release();
+      await runner.manager.save(product);
+      await runner.commitTransaction(); // commit 먼저 또는
+    } catch (e) {
+      await runner.rollbackTransaction(); // rollback 먼저 시키고
+      throw e;
+    } finally {
+      await runner.release(); // 트랜잭션 해제
+      await release(); // 트랜잭션 해제 한 다음 락 해제
+    }
   }
 
   async getProduct(productId: number): Promise<Product> {

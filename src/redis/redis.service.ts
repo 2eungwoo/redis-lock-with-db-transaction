@@ -68,31 +68,23 @@ export class RedisService implements OnModuleDestroy {
 
     if (result === undefined) {
       throw new Error(
-        `withLock: Critical section for resource ${resource} did not return a value.`,
+        `withLock: 리소스 ${resource} 임계구역에서 result===undefined`,
       );
     }
 
     return result;
   }
 
-  async withLockManual(resource: string, ttl: number, fn: () => Promise<any>) {
-    let release: () => Promise<void>;
+  async withLockManual(resource: string, ttl: number) {
+    const lock = await this.redlock.acquire([resource], ttl);
+    this.logger.debug(`수동 락 획득: ${resource}`);
 
-    const result = await this.redlock.using([resource], ttl, async (signal) => {
-      release = async () => {
-        try {
-          if (!signal.aborted) {
-            await signal.redlock.release(signal.lock);
-            this.logger.debug(`수동 락 해제 완료: ${resource}`);
-          }
-        } catch (err) {
-          this.logger.error(`수동 락 해제 실패: ${resource}`, err);
-        }
-      };
-      return await fn();
-    });
-
-    return { result, release };
+    return {
+      release: async () => {
+        await lock.release();
+        this.logger.debug(`수동 락 해제 완료: ${resource}`);
+      },
+    };
   }
 
   // 서비스 종료 시 연결 해제
