@@ -52,9 +52,9 @@ export class ProductController {
     return ProductResponseDto.from(product);
   }
 
-  @Post(':id/tx-rollback')
-  async txRollback(@Param('id') id: number) {
-    await this.productService.txWithLockAndRollback(+id, 1);
+  @Post(':id/tx-unsafe')
+  async txUnsafe(@Param('id') id: number) {
+    await this.productService.txWithLockUnsafe(+id, 1);
     return { ok: true };
   }
 

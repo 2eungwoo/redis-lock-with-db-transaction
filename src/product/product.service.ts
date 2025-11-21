@@ -35,10 +35,7 @@ export class ProductService {
     });
   }
 
-  async txWithLockAndRollback(
-    productId: number,
-    quantity: number,
-  ): Promise<void> {
+  async txWithLockUnsafe(productId: number, quantity: number): Promise<void> {
     const resource = `product:${productId}:lock`;
     const runner = this.dataSource.createQueryRunner();
 
@@ -46,11 +43,10 @@ export class ProductService {
     await runner.startTransaction();
 
     try {
+      // Redis 안에서 락 읽기/검증/update 수행
       await this.redisService.withLock(resource, 5000, async () => {
         const product = await runner.manager.findOne(Product, {
           where: { id: productId },
-          lock: { mode: 'pessimistic_write' },
-          // redis 문제인지 db문제인지 구분이 필요하므로 db쪽에서도 락 잡아주도록 설정
         });
 
         if (!product) throw new Error('not found');
@@ -58,16 +54,20 @@ export class ProductService {
         this.validateStock(product, quantity);
         product.stock -= quantity;
 
+        console.log(
+          `[UNSAFE] 트랜잭션=${runner.connection.name} / 중간 stock = ${product.stock}`,
+        );
         await runner.manager.save(product);
-
-        // 의도적 실패 → 트랜잭션 롤백 유도
-        throw new Error('forced rollback');
       });
 
-      // withLock callback 끝나는 순간 락은 이미 해제된 상태임
-      await runner.commitTransaction(); // 도달 X
+      // 이 시점에서 redis 락은 이미 풀렸으나 트랜잭션은 아직 안끝남
+      // 딜레이 추가해서 충돌 유발
+      await new Promise((res) => setTimeout(res, 3000));
+
+      // 그 다음에 커밋 -> 이 시점에 다른 요청 들어오게만듬
+      await runner.commitTransaction();
     } catch (err) {
-      await runner.rollbackTransaction(); // 여기서 rollback
+      await runner.rollbackTransaction();
       throw err;
     } finally {
       await runner.release();
