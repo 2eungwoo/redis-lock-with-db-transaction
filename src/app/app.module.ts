@@ -4,8 +4,8 @@ import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RedisModule } from '../redis/redis.module';
 import { ProductModule } from '../product/product.module';
-import { DataSource, DataSourceOptions } from 'typeorm';
-import { addTransactionalDataSource } from 'typeorm-transactional';
+import { DataSourceOptions } from 'typeorm';
+import { initializeTransactionalContext } from 'typeorm-transactional';
 
 export const dataSourceOptions: DataSourceOptions = {
   type: 'postgres',
@@ -15,28 +15,20 @@ export const dataSourceOptions: DataSourceOptions = {
   password: process.env.DB_PASSWORD || 'password',
   database: process.env.DB_DATABASE || 'test',
   entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-  synchronize: true, // 개발 환경에서만 사용
+  synchronize: true,
 };
 
 @Module({
   imports: [
-    TypeOrmModule.forRootAsync({
-      useFactory() {
-        return dataSourceOptions;
-      },
-      dataSourceFactory(options) {
-        if (!options) {
-          throw new Error('Invalid options passed');
-        }
-        return Promise.resolve(
-          addTransactionalDataSource(new DataSource(options)),
-        );
-      },
-    }),
+    TypeOrmModule.forRoot(dataSourceOptions),
     RedisModule,
     ProductModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule {
+  constructor() {
+    initializeTransactionalContext();
+  }
+}
