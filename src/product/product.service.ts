@@ -55,7 +55,7 @@ export class ProductService {
         product.stock -= quantity;
 
         console.log(
-          `[UNSAFE] 트랜잭션=${runner.connection.name} / 중간 stock = ${product.stock}`,
+          `[UNSAFE] 트랜잭션=${runner.connection.getMetadata.name} / 중간 stock = ${product.stock}`,
         );
         await runner.manager.save(product);
         return true; // dirty read 재현하기위해서 리턴쳐버림
@@ -134,7 +134,7 @@ export class ProductService {
     await this.productRepository.clear();
     const newProduct = this.productRepository.create({
       name: 'Test Product',
-      stock: 1,
+      stock: 1000,
     });
     return this.productRepository.save(newProduct);
   }
