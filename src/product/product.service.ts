@@ -58,6 +58,7 @@ export class ProductService {
           `[UNSAFE] 트랜잭션=${runner.connection.name} / 중간 stock = ${product.stock}`,
         );
         await runner.manager.save(product);
+        return true; // dirty read 재현하기위해서 리턴쳐버림
       });
 
       // 이 시점에서 redis 락은 이미 풀렸으나 트랜잭션은 아직 안끝남
