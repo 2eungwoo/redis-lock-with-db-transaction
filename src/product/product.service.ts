@@ -50,6 +50,7 @@ export class ProductService {
         const product = await runner.manager.findOne(Product, {
           where: { id: productId },
           lock: { mode: 'pessimistic_write' },
+          // redis 문제인지 db문제인지 구분이 필요하므로 db쪽에서도 락 잡아주도록 설정
         });
 
         if (!product) throw new Error('not found');
@@ -84,6 +85,7 @@ export class ProductService {
       const product = await runner.manager.findOne(Product, {
         where: { id: productId },
         lock: { mode: 'pessimistic_write' },
+        // 얘도 redis 문제인지 db문제인지 구분이 필요하므로 db쪽에서도 락 잡아주도록 설정
       });
 
       if (!product) {
