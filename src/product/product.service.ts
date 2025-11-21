@@ -75,35 +75,37 @@ export class ProductService {
     }
   }
 
-  async txWithLockSafe(productId: number, quantity: number): Promise<void> {
-    const resource = `product:${productId}:lock`;
-    const { release } = await this.redisService.withLockManual(resource, 5000);
+  async txWithoutRedisLock(productId: number, quantity: number): Promise<void> {
     const runner = this.dataSource.createQueryRunner();
-
     await runner.connect();
     await runner.startTransaction();
+
     try {
       const product = await runner.manager.findOne(Product, {
         where: { id: productId },
-        lock: { mode: 'pessimistic_write' },
-        // 얘도 redis 문제인지 db문제인지 구분이 필요하므로 db쪽에서도 락 잡아주도록 설정
       });
 
-      if (!product) {
-        throw new NotFoundException(`Product with ID ${productId} not found`);
-      }
+      if (!product) throw new Error('not found');
 
       this.validateStock(product, quantity);
       product.stock -= quantity;
 
+      console.log(
+        `[NO-LOCK] 트랜잭션=${runner.connection.name} / 중간 stock = ${product.stock}`,
+      );
+
       await runner.manager.save(product);
-      await runner.commitTransaction(); // commit 먼저 또는
+
+      // commit 지연 똑같이
+      await new Promise((r) => setTimeout(r, 3000));
+
+      // commit/rollback, releaes 시점 똑같이
+      await runner.commitTransaction();
     } catch (e) {
-      await runner.rollbackTransaction(); // rollback 먼저 시키고
+      await runner.rollbackTransaction();
       throw e;
     } finally {
-      await runner.release(); // 트랜잭션 해제
-      await release(); // 트랜잭션 해제 한 다음 락 해제
+      await runner.release();
     }
   }
 

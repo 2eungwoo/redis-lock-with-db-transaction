@@ -58,10 +58,9 @@ export class ProductController {
     return { ok: true };
   }
 
-  @Post(':id/tx-safe')
-  async txSafe(@Param('id') id: number) {
-    await this.productService.txWithLockSafe(+id, 1);
-    return { ok: true };
+  @Post(':id/tx-no-lock')
+  async txNoLock(@Param('id') id: number) {
+    return this.productService.txWithoutRedisLock(Number(id), 1);
   }
 
   @Post('clear')
