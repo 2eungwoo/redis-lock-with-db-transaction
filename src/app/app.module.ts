@@ -4,8 +4,11 @@ import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RedisModule } from '../redis/redis.module';
 import { ProductModule } from '../product/product.module';
-import { DataSourceOptions } from 'typeorm';
-import { initializeTransactionalContext } from 'typeorm-transactional';
+import { DataSource, DataSourceOptions } from 'typeorm';
+import {
+  initializeTransactionalContext,
+  addTransactionalDataSource,
+} from 'typeorm-transactional';
 
 export const dataSourceOptions: DataSourceOptions = {
   type: 'postgres',
@@ -28,7 +31,8 @@ export const dataSourceOptions: DataSourceOptions = {
   providers: [AppService],
 })
 export class AppModule {
-  constructor() {
+  constructor(dataSource: DataSource) {
     initializeTransactionalContext();
+    addTransactionalDataSource(dataSource);
   }
 }
